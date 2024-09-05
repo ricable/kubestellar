@@ -30,7 +30,7 @@ on:
 jobs:
   ginkgo-test:
     name: Tests in ginkgo
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4.1.1
       
@@ -161,7 +161,7 @@ jobs:
 
   test-bash:
     name: Test in bash
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4.1.1
       
