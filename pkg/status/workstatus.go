@@ -70,7 +70,7 @@ func (c *Controller) syncWorkStatus(ctx context.Context, ref workStatusRef) erro
 		workStatus.lastUpdateTime = getObjectStatusLastUpdateTime(obj.(metav1.Object))
 	}
 
-	combinedStatusSet := c.combinedStatusResolver.NoteWorkStatus(workStatus) // nil .status is equivalent to deleted
+	combinedStatusSet := c.combinedStatusResolver.NoteWorkStatus(ctx, workStatus) // nil .status is equivalent to deleted
 	for combinedStatus := range combinedStatusSet {
 		logger.V(5).Info("Enqueuing reference to CombinedStatus while syncing WorkStatus", "combinedStatusRef", combinedStatus.ObjectName, "workStatusRef", ref)
 		c.workqueue.AddAfter(combinedStatusRef(combinedStatus.ObjectName.AsNamespacedName().String()), queueingDelay)
@@ -90,7 +90,7 @@ func updateObjectStatus(ctx context.Context, objectIdentifier util.ObjectIdentif
 	listers util.ConcurrentMap[schema.GroupVersionResource, cache.GenericLister], wdsDynClient dynamic.Interface) error {
 	logger := klog.FromContext(ctx)
 
-	if util.WEC2WDSExceptions.Has(objectIdentifier.GVK) {
+	if util.WEC2WDSExceptions.Has(objectIdentifier.GVK.GroupKind()) {
 		logger.V(4).Info("Status from WEC shouldn't have authority to overwrite status in WDS", "object", objectIdentifier)
 		return nil
 	}
@@ -126,10 +126,10 @@ func updateObjectStatus(ctx context.Context, objectIdentifier util.ObjectIdentif
 	unstrObj.Object["status"] = status
 
 	if objectIdentifier.ObjectName.Namespace == "" {
-		_, err = wdsDynClient.Resource(gvr).UpdateStatus(ctx, unstrObj, metav1.UpdateOptions{})
+		_, err = wdsDynClient.Resource(gvr).UpdateStatus(ctx, unstrObj, metav1.UpdateOptions{FieldManager: ControllerName})
 	} else {
 		_, err = wdsDynClient.Resource(gvr).Namespace(objectIdentifier.ObjectName.Namespace).UpdateStatus(ctx,
-			unstrObj, metav1.UpdateOptions{})
+			unstrObj, metav1.UpdateOptions{FieldManager: ControllerName})
 	}
 	if err != nil {
 		// if resource not found it may mean no status subresource - try to patch the status

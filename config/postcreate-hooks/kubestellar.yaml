@@ -184,9 +184,11 @@ spec:
               - kubestellar
               - oci://ghcr.io/kubestellar/kubestellar/controller-manager-chart
               - --version
-              - "0.24.0-alpha.2"
+              - "0.24.0"
               - --set
               - "ControlPlaneName={{.ControlPlaneName}}"
+              - --set
+              - "ControllerManager.Verbosity={{.ControllerManagerVerbosity}}"
             env:
             - name: XDG_CACHE_HOME
               value: /tmp/helm/.cache
@@ -198,12 +200,14 @@ spec:
               - --install
               - --namespace
               - "{{.Namespace}}"
-              - ocm-transport-plugin
-              - oci://ghcr.io/kubestellar/ocm-transport-plugin/chart/ocm-transport-plugin
+              - ocm-transport-controller
+              - oci://ghcr.io/kubestellar/kubestellar/ocm-transport-controller-chart
               - --version
-              - "0.1.11"
+              - "0.24.0"
               - --set
               - "wds_cp_name={{.ControlPlaneName}}"
+              - --set
+              - "verbosity={{.TransportControllerVerbosity}}"
             env:
             - name: XDG_CACHE_HOME
               value: /tmp/helm/.cache

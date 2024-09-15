@@ -4,13 +4,12 @@
 
 
 # Container/chart image versions. These values are set during the chart release process,
-# please do not change them unless you know what your are doing.
+# please do not change them unless you know what you are doing.
 HELM_VERSION: "3.15.0"
 KUBECTL_VERSION: "1.30.1"
-KUBESTELLAR_VERSION: "0.24.0-alpha.2"
+KUBESTELLAR_VERSION: "0.24.0"
 CLUSTERADM_VERSION: "0.8.2"
-OCM_STATUS_ADDON_VERSION: "0.2.0-rc10"
-OCM_TRANSPORT_PLUGIN_VERSION: "0.1.11"
+OCM_STATUS_ADDON_VERSION: "0.2.0-rc11"
 
 
 # Control controller log verbosity
@@ -57,6 +56,10 @@ status_agent:
 # Determine if the Post Create Hooks should be installed by the chart
 InstallPCHs: true
 
+# Transport controller bundling parameters
+transport_controller:
+    max_num_wrapped: 512000
+    max_size_wrapped: 512000
 
 # List the Inventory and Transport Spaces (ITSes) to be created by the chart
 # Each ITS consists of a mandatory unique name and an optional type, which could be either host or vcluster (default to vcluster, if not specified)

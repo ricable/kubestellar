@@ -197,7 +197,7 @@ spec:
             env:
             - name: XDG_CACHE_HOME
               value: /tmp/helm/.cache
-          - name: "{{"{{.HookName}}-otp"}}"
+          - name: "{{"{{.HookName}}-otc"}}"
             image: quay.io/kubestellar/helm:{{.Values.HELM_VERSION}}
             imagePullPolicy: IfNotPresent
             args:
@@ -205,16 +205,20 @@ spec:
             - --install
             - --namespace
             - "{{"{{.Namespace}}"}}"
-            - ocm-transport-plugin
-            - oci://ghcr.io/kubestellar/ocm-transport-plugin/chart/ocm-transport-plugin
+            - ocm-transport-controller
+            - oci://ghcr.io/kubestellar/kubestellar/ocm-transport-controller-chart
             - --version
-            - {{.Values.OCM_TRANSPORT_PLUGIN_VERSION}}
+            - {{.Values.KUBESTELLAR_VERSION}}
             - --set
             - "{{"wds_cp_name={{.ControlPlaneName}}"}}"
             - --set
             - "{{"transport_cp_name={{.ITSName}}"}}"
             - --set
             - "verbosity={{.Values.verbosity.transport | default .Values.verbosity.default | default 4 }}"
+            - --set
+            - "max_num_wrapped={{.Values.transport_controller.max_num_wrapped}}"
+            - --set
+            - "max_size_wrapped={{.Values.transport_controller.max_size_wrapped}}"
             env:
             - name: XDG_CACHE_HOME
               value: /tmp/helm/.cache

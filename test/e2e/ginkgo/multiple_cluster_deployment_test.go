@@ -20,6 +20,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
+	"strconv"
 	"time"
 
 	"github.com/onsi/ginkgo/v2"
@@ -68,8 +70,8 @@ var _ = ginkgo.Describe("end to end testing", func() {
 				}
 				return ""
 			}
-			util.ValidateNumDeployments(ctx, wec1, ns, 1, testLabelAbsent)
-			util.ValidateNumDeployments(ctx, wec2, ns, 1, testLabelAbsent)
+			util.ValidateNumDeployments(ctx, "wec1", wec1, ns, 1, testLabelAbsent)
+			util.ValidateNumDeployments(ctx, "wec2", wec2, ns, 1, testLabelAbsent)
 		})
 
 		ginkgo.It("updates objects on the WECs following an update on the WDS", func(ctx context.Context) {
@@ -134,16 +136,16 @@ var _ = ginkgo.Describe("end to end testing", func() {
 			_, err := ksWds.ControlV1alpha1().BindingPolicies().Patch(
 				ctx, "nginx", types.MergePatchType, patch, metav1.PatchOptions{})
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
-			util.ValidateNumDeployments(ctx, wec1, ns, 0)
-			util.ValidateNumDeployments(ctx, wec2, ns, 0)
+			util.ValidateNumDeployments(ctx, "wec1", wec1, ns, 0)
+			util.ValidateNumDeployments(ctx, "wec2", wec2, ns, 0)
 
 			ginkgo.By("creating WEC objects when bindingpolicy ObjectSelector matches")
 			patch = []byte(`{"spec": {"downsync": [{"objectSelectors": [{"matchLabels": {"app.kubernetes.io/name": "nginx"}}]}]}}`)
 			_, err = ksWds.ControlV1alpha1().BindingPolicies().Patch(
 				ctx, "nginx", types.MergePatchType, patch, metav1.PatchOptions{})
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
-			util.ValidateNumDeployments(ctx, wec1, ns, 1)
-			util.ValidateNumDeployments(ctx, wec2, ns, 1)
+			util.ValidateNumDeployments(ctx, "wec1", wec1, ns, 1)
+			util.ValidateNumDeployments(ctx, "wec2", wec2, ns, 1)
 		})
 
 		ginkgo.It("handles changes in workload object labels", func(ctx context.Context) {
@@ -152,16 +154,16 @@ var _ = ginkgo.Describe("end to end testing", func() {
 			_, err := wds.AppsV1().Deployments("nginx").Patch(
 				ctx, "nginx", types.MergePatchType, patch, metav1.PatchOptions{})
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
-			util.ValidateNumDeployments(ctx, wec1, ns, 0)
-			util.ValidateNumDeployments(ctx, wec2, ns, 0)
+			util.ValidateNumDeployments(ctx, "wec1", wec1, ns, 0)
+			util.ValidateNumDeployments(ctx, "wec2", wec2, ns, 0)
 
 			ginkgo.By("creating WEC objects when workload object labels resume matching")
 			patch = []byte(`{"metadata": {"labels": {"app.kubernetes.io/name": "nginx"}}}`)
 			_, err = wds.AppsV1().Deployments("nginx").Patch(
 				ctx, "nginx", types.MergePatchType, patch, metav1.PatchOptions{})
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
-			util.ValidateNumDeployments(ctx, wec1, ns, 1)
-			util.ValidateNumDeployments(ctx, wec2, ns, 1)
+			util.ValidateNumDeployments(ctx, "wec1", wec1, ns, 1)
+			util.ValidateNumDeployments(ctx, "wec2", wec2, ns, 1)
 		})
 
 		ginkgo.It("handles multiple bindingpolicies with overlapping matches", func(ctx context.Context) {
@@ -176,27 +178,27 @@ var _ = ginkgo.Describe("end to end testing", func() {
 					}},
 				},
 			)
-			util.ValidateNumDeployments(ctx, wec1, ns, 1)
-			util.ValidateNumDeployments(ctx, wec2, ns, 1)
+			util.ValidateNumDeployments(ctx, "wec1", wec1, ns, 1)
+			util.ValidateNumDeployments(ctx, "wec2", wec2, ns, 1)
 
 			ginkgo.By("deleting the second bindingpolicy")
 			err := ksWds.ControlV1alpha1().BindingPolicies().Delete(ctx, "nginx-2", metav1.DeleteOptions{})
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
-			util.ValidateNumDeployments(ctx, wec1, ns, 1)
-			util.ValidateNumDeployments(ctx, wec2, ns, 1)
+			util.ValidateNumDeployments(ctx, "wec1", wec1, ns, 1)
+			util.ValidateNumDeployments(ctx, "wec2", wec2, ns, 1)
 		})
 
 		ginkgo.It("deletes WEC objects when wds deployment is deleted", func(ctx context.Context) {
 			util.DeleteDeployment(ctx, wds, ns, "nginx")
-			util.ValidateNumDeployments(ctx, wec1, ns, 0)
-			util.ValidateNumDeployments(ctx, wec2, ns, 0)
+			util.ValidateNumDeployments(ctx, "wec1", wec1, ns, 0)
+			util.ValidateNumDeployments(ctx, "wec2", wec2, ns, 0)
 		})
 
 		ginkgo.It("deletes WEC objects when BindingPolicy is deleted", func(ctx context.Context) {
 			err := ksWds.ControlV1alpha1().BindingPolicies().Delete(ctx, "nginx", metav1.DeleteOptions{})
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
-			util.ValidateNumDeployments(ctx, wec1, ns, 0)
-			util.ValidateNumDeployments(ctx, wec2, ns, 0)
+			util.ValidateNumDeployments(ctx, "wec1", wec1, ns, 0)
+			util.ValidateNumDeployments(ctx, "wec2", wec2, ns, 0)
 		})
 
 		ginkgo.It("shards a wrapped workload based on max-num-wrapped", func(ctx context.Context) {
@@ -243,8 +245,8 @@ var _ = ginkgo.Describe("end to end testing", func() {
 			// And the 5 manifestworks for the deployment on cluster1.
 			util.ValidateNumManifestworks(ctx, its, "cluster1", 7)
 			util.ValidateNumManifestworks(ctx, its, "cluster2", 2)
-			util.ValidateNumDeployments(ctx, wec1, ns, 10)
-			util.ValidateNumDeployments(ctx, wec2, ns, 0)
+			util.ValidateNumDeployments(ctx, "wec1", wec1, ns, 10)
+			util.ValidateNumDeployments(ctx, "wec2", wec2, ns, 0)
 
 			ginkgo.By("update to bindingpolicy object with sharded wrapped workloads updates deployments")
 			BPPatch := []byte(`{"spec": {"clusterSelectors": [{"matchLabels": {"name": "cluster2"}}]}}`)
@@ -254,16 +256,16 @@ var _ = ginkgo.Describe("end to end testing", func() {
 			// And the 5 manifestworks for the deployment on cluster2.
 			util.ValidateNumManifestworks(ctx, its, "cluster1", 2)
 			util.ValidateNumManifestworks(ctx, its, "cluster2", 7)
-			util.ValidateNumDeployments(ctx, wec1, ns, 0)
-			util.ValidateNumDeployments(ctx, wec2, ns, 10)
+			util.ValidateNumDeployments(ctx, "wec1", wec1, ns, 0)
+			util.ValidateNumDeployments(ctx, "wec2", wec2, ns, 10)
 
 			ginkgo.By("delete of bindingpolicy with sharded wrapped workloads deletes deployments")
 			util.DeleteBindingPolicy(ctx, ksWds, "multipledep")
 			// Expect addon-addon-status-deploy-0  and nginx-wds1 manifest works on both clusters.
 			util.ValidateNumManifestworks(ctx, its, "cluster1", 2)
 			util.ValidateNumManifestworks(ctx, its, "cluster2", 2)
-			util.ValidateNumDeployments(ctx, wec1, ns, 0)
-			util.ValidateNumDeployments(ctx, wec2, ns, 0)
+			util.ValidateNumDeployments(ctx, "wec1", wec1, ns, 0)
+			util.ValidateNumDeployments(ctx, "wec2", wec2, ns, 0)
 		})
 
 		ginkgo.It("shards a wrapped workload based on max-size-wrapped", func(ctx context.Context) {
@@ -310,8 +312,8 @@ var _ = ginkgo.Describe("end to end testing", func() {
 			// And the 10 manifestworks for the deployment on cluster1.
 			util.ValidateNumManifestworks(ctx, its, "cluster1", 12)
 			util.ValidateNumManifestworks(ctx, its, "cluster2", 2)
-			util.ValidateNumDeployments(ctx, wec1, ns, 10)
-			util.ValidateNumDeployments(ctx, wec2, ns, 0)
+			util.ValidateNumDeployments(ctx, "wec1", wec1, ns, 10)
+			util.ValidateNumDeployments(ctx, "wec2", wec2, ns, 0)
 
 			ginkgo.By("updating the bindingpolicy object with sharded wrapped workloads and expecting updated deployments")
 			BPPatch := []byte(`{"spec": {"clusterSelectors": [{"matchLabels": {"name": "cluster2"}}]}}`)
@@ -321,16 +323,16 @@ var _ = ginkgo.Describe("end to end testing", func() {
 			// And the 10 manifestworks for the deployment on cluster2.
 			util.ValidateNumManifestworks(ctx, its, "cluster1", 2)
 			util.ValidateNumManifestworks(ctx, its, "cluster2", 12)
-			util.ValidateNumDeployments(ctx, wec1, ns, 0)
-			util.ValidateNumDeployments(ctx, wec2, ns, 10)
+			util.ValidateNumDeployments(ctx, "wec1", wec1, ns, 0)
+			util.ValidateNumDeployments(ctx, "wec2", wec2, ns, 10)
 
 			ginkgo.By("deleting the bindingpolicy with sharded wrapped workloads and expecting deployments to get deleted")
 			util.DeleteBindingPolicy(ctx, ksWds, "multipledep")
 			// Expect addon-addon-status-deploy-0  and nginx-wds1 manifest works on both clusters.
 			util.ValidateNumManifestworks(ctx, its, "cluster1", 2)
 			util.ValidateNumManifestworks(ctx, its, "cluster2", 2)
-			util.ValidateNumDeployments(ctx, wec1, ns, 0)
-			util.ValidateNumDeployments(ctx, wec2, ns, 0)
+			util.ValidateNumDeployments(ctx, "wec1", wec1, ns, 0)
+			util.ValidateNumDeployments(ctx, "wec2", wec2, ns, 0)
 		})
 
 		// 1. Create object 1 with label A and label B, object 2 with label B,
@@ -360,16 +362,16 @@ var _ = ginkgo.Describe("end to end testing", func() {
 					}},
 				},
 			)
-			util.ValidateNumDeployments(ctx, wec1, ns, 1)
-			util.ValidateNumDeployments(ctx, wec2, ns, 0)
+			util.ValidateNumDeployments(ctx, "wec1", wec1, ns, 1)
+			util.ValidateNumDeployments(ctx, "wec2", wec2, ns, 0)
 
 			ginkgo.By("patching the cluster selector")
 			patch := []byte(`{"spec": {"clusterSelectors": [{"matchLabels": {"name": "cluster2"}}]}}`)
 			_, err := ksWds.ControlV1alpha1().BindingPolicies().Patch(
 				ctx, "both-labels", types.MergePatchType, patch, metav1.PatchOptions{})
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
-			util.ValidateNumDeployments(ctx, wec1, ns, 0)
-			util.ValidateNumDeployments(ctx, wec2, ns, 1)
+			util.ValidateNumDeployments(ctx, "wec1", wec1, ns, 0)
+			util.ValidateNumDeployments(ctx, "wec2", wec2, ns, 1)
 		})
 
 		ginkgo.It("handles clusterSelector with MatchLabels and MatchExpressions", func(ctx context.Context) {
@@ -402,8 +404,8 @@ var _ = ginkgo.Describe("end to end testing", func() {
 					}},
 				},
 			)
-			util.ValidateNumDeployments(ctx, wec1, ns, 2)
-			util.ValidateNumDeployments(ctx, wec2, ns, 2)
+			util.ValidateNumDeployments(ctx, "wec1", wec1, ns, 2)
+			util.ValidateNumDeployments(ctx, "wec2", wec2, ns, 2)
 		})
 
 		ginkgo.It("selects workload objects based on both labels and name", func(ctx context.Context) {
@@ -431,8 +433,8 @@ var _ = ginkgo.Describe("end to end testing", func() {
 					}},
 				},
 			)
-			util.ValidateNumDeployments(ctx, wec1, ns, 1)
-			util.ValidateNumDeployments(ctx, wec2, ns, 1)
+			util.ValidateNumDeployments(ctx, "wec1", wec1, ns, 1)
+			util.ValidateNumDeployments(ctx, "wec2", wec2, ns, 1)
 		})
 	})
 
@@ -457,15 +459,15 @@ var _ = ginkgo.Describe("end to end testing", func() {
 					return nil
 				},
 			)
-			util.ValidateNumDeployments(ctx, wec1, ns, 1)
-			util.ValidateNumDeployments(ctx, wec2, ns, 0)
+			util.ValidateNumDeployments(ctx, "wec1", wec1, ns, 1)
+			util.ValidateNumDeployments(ctx, "wec2", wec2, ns, 0)
 			util.ValidateSingletonStatus(ctx, wds, ns, "nginx-singleton")
 			patch := []byte(`{"spec":{"clusterSelectors":[{"matchLabels":{"name":"CelestialNexus"}}]}}`)
 			_, err := ksWds.ControlV1alpha1().BindingPolicies().Patch(
 				ctx, "nginx-singleton", types.MergePatchType, patch, metav1.PatchOptions{})
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
-			util.ValidateNumDeployments(ctx, wec1, ns, 0)
-			util.ValidateNumDeployments(ctx, wec2, ns, 0)
+			util.ValidateNumDeployments(ctx, "wec1", wec1, ns, 0)
+			util.ValidateNumDeployments(ctx, "wec2", wec2, ns, 0)
 			util.ValidateSingletonStatusZeroValue(ctx, wds, ns, "nginx-singleton")
 		})
 	})
@@ -492,8 +494,8 @@ var _ = ginkgo.Describe("end to end testing", func() {
 					return nil
 				},
 			)
-			util.ValidateNumDeployments(ctx, wec1, ns, 1)
-			util.ValidateNumDeployments(ctx, wec2, ns, 0)
+			util.ValidateNumDeployments(ctx, "wec1", wec1, ns, 1)
+			util.ValidateNumDeployments(ctx, "wec2", wec2, ns, 0)
 			util.ValidateSingletonStatus(ctx, wds, ns, "nginx-singleton")
 			util.ValidateSingletonStatusNonZeroValue(ctx, wds, ns, "nginx-singleton")
 			ginkgo.GinkgoLogr.Info("Singleton status synced")
@@ -542,8 +544,8 @@ var _ = ginkgo.Describe("end to end testing", func() {
 			_, err = ksWds.ControlV1alpha1().BindingPolicies().Patch(
 				ctx, "nginx-singleton", types.MergePatchType, BPPatch, metav1.PatchOptions{})
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
-			util.ValidateNumDeployments(ctx, wec1, ns, 0)
-			util.ValidateNumDeployments(ctx, wec2, ns, 0)
+			util.ValidateNumDeployments(ctx, "wec1", wec1, ns, 0)
+			util.ValidateNumDeployments(ctx, "wec2", wec2, ns, 0)
 			util.ValidateSingletonStatusNonZeroValue(ctx, wds, ns, "nginx-singleton")
 
 			scaledDown = true
@@ -599,22 +601,22 @@ var _ = ginkgo.Describe("end to end testing", func() {
 		ginkgo.It("survives WDS coming down", func(ctx context.Context) {
 			util.DeletePods(ctx, coreCluster, "wds1-system", "kubestellar")
 			util.DeletePods(ctx, coreCluster, "wds1-system", "transport")
-			util.ValidateNumDeployments(ctx, wec1, ns, 1)
-			util.ValidateNumDeployments(ctx, wec2, ns, 1)
+			util.ValidateNumDeployments(ctx, "wec1", wec1, ns, 1)
+			util.ValidateNumDeployments(ctx, "wec2", wec2, ns, 1)
 			util.Expect1PodOfEach(ctx, coreCluster, "wds1-system", "kubestellar-controller-manager", "transport-controller")
 		})
 
 		ginkgo.It("survives kubeflex coming down", func(ctx context.Context) {
 			util.DeletePods(ctx, coreCluster, "kubeflex-system", "")
-			util.ValidateNumDeployments(ctx, wec1, ns, 1)
-			util.ValidateNumDeployments(ctx, wec2, ns, 1)
+			util.ValidateNumDeployments(ctx, "wec1", wec1, ns, 1)
+			util.ValidateNumDeployments(ctx, "wec2", wec2, ns, 1)
 			util.Expect1PodOfEach(ctx, coreCluster, "kubeflex-system", "kubeflex-controller-manager", "postgres-postgresql-0")
 		})
 
 		ginkgo.It("survives ITS vcluster coming down", func(ctx context.Context) {
 			util.DeletePods(ctx, coreCluster, "its1-system", "vcluster")
-			util.ValidateNumDeployments(ctx, wec1, ns, 1)
-			util.ValidateNumDeployments(ctx, wec2, ns, 1)
+			util.ValidateNumDeployments(ctx, "wec1", wec1, ns, 1)
+			util.ValidateNumDeployments(ctx, "wec2", wec2, ns, 1)
 		})
 
 		ginkgo.It("survives everything coming down", func(ctx context.Context) {
@@ -623,16 +625,16 @@ var _ = ginkgo.Describe("end to end testing", func() {
 			util.DeletePods(ctx, coreCluster, "wds1-system", "transport")
 			util.DeletePods(ctx, coreCluster, "kubeflex-system", "")
 			util.DeletePods(ctx, coreCluster, "its1-system", "vcluster")
-			util.ValidateNumDeployments(ctx, wec1, ns, 1)
-			util.ValidateNumDeployments(ctx, wec2, ns, 1)
+			util.ValidateNumDeployments(ctx, "wec1", wec1, ns, 1)
+			util.ValidateNumDeployments(ctx, "wec2", wec2, ns, 1)
 
 			ginkgo.By("testing that a new deployment still gets downsynced")
 			util.CreateDeployment(ctx, wds, ns, "nginx-2",
 				map[string]string{
 					"app.kubernetes.io/name": "nginx",
 				})
-			util.ValidateNumDeployments(ctx, wec1, ns, 2)
-			util.ValidateNumDeployments(ctx, wec2, ns, 2)
+			util.ValidateNumDeployments(ctx, "wec1", wec1, ns, 2)
+			util.ValidateNumDeployments(ctx, "wec2", wec2, ns, 2)
 			util.Expect1PodOfEach(ctx, coreCluster, "wds1-system", "kubestellar-controller-manager", "transport-controller")
 			util.Expect1PodOfEach(ctx, coreCluster, "kubeflex-system", "kubeflex-controller-manager", "postgres-postgresql-0")
 			util.Expect1PodOfEach(ctx, coreCluster, "its1-system", "vcluster")
@@ -818,6 +820,48 @@ var _ = ginkgo.Describe("end to end testing", func() {
 
 			gomega.Expect(len(cs.Results[1].ColumnNames)).To(gomega.Equal(2))
 			gomega.Expect(len(cs.Results[1].Rows)).To(gomega.Equal(2))
+
+		})
+
+		ginkgo.It("can aggregate over zero WECs", func(ctx context.Context) {
+			exprFalse := ksapi.Expression("false")
+			expr2 := ksapi.Expression("2")
+			str0 := "0"
+			strPlusInf := strconv.FormatFloat(math.Inf(1), 'g', -1, 64)
+			strNegInf := strconv.FormatFloat(math.Inf(-1), 'g', -1, 64)
+			strNaN := strconv.FormatFloat(math.NaN(), 'g', -1, 64)
+			collectorName := "test-empty-group"
+			util.CreateStatusCollector(ctx, ksWds, collectorName,
+				ksapi.StatusCollectorSpec{
+					Filter: &exprFalse,
+					CombinedFields: []ksapi.NamedAggregator{
+						{Name: "count", Type: ksapi.AggregatorTypeCount},
+						{Name: "max", Type: ksapi.AggregatorTypeMax, Subject: &expr2},
+						{Name: "min", Type: ksapi.AggregatorTypeMin, Subject: &expr2},
+						{Name: "sum", Type: ksapi.AggregatorTypeSum, Subject: &expr2},
+						{Name: "avg", Type: ksapi.AggregatorTypeAvg, Subject: &expr2},
+					},
+					Limit: 20,
+				})
+
+			testAndStatusCollection[0].StatusCollection.StatusCollectors = []string{collectorName}
+			util.CreateBindingPolicy(ctx, ksWds, bpName, clusterSelector, testAndStatusCollection)
+
+			cs := util.GetCombinedStatus(ctx, ksWds, wds, ns, workloadName, bpName)
+
+			// Validate CombinedStatus results
+			gomega.Expect(len(cs.Results)).To(gomega.Equal(1))
+
+			gomega.Expect(cs.Results[0].ColumnNames).To(gomega.Equal([]string{"count", "max", "min", "sum", "avg"}))
+			gomega.Expect(len(cs.Results[0].Rows)).To(gomega.Equal(1))
+			expectedRow := []ksapi.Value{
+				{Type: ksapi.TypeNumber, Number: &str0},
+				{Type: ksapi.TypeNumber, Number: &strNegInf},
+				{Type: ksapi.TypeNumber, Number: &strPlusInf},
+				{Type: ksapi.TypeNumber, Number: &str0},
+				{Type: ksapi.TypeNumber, Number: &strNaN},
+			}
+			gomega.Expect(cs.Results[0].Rows[0].Columns).To(gomega.Equal(expectedRow))
 
 		})
 	})
